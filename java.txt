@@ -1,0 +1,62 @@
+function CheckTheJavaVersion() {
+  inCompat=0
+
+  if [ -n "$JAVA_HOME" -a -d "$JAVA_HOME" ]; then
+   if [ -f "$JAVA_HOME"/bin/java ]; then
+    JAVA="$JAVA_HOME"/bin/java
+   fi
+   elif [ "n$JAVA_HOME" = "n" ]; then
+    which java > /dev/null 2> /dev/null
+    if [ $? = 0  ]; then
+     JAVA=java
+    fi
+  fi
+
+  #
+  # Verify that the recommended Java vendor and version are in $PATH
+  #
+  if [ "$JAVA" = "" ]; then
+    logErr "There is no Java available either in default PATH: $PATH or through JAVA_HOME environment variable"
+    inCompat=1
+  else
+   $JAVA -version > /dev/null 2>&1
+   if [ $? != 0 ]; then
+    logErr "There is no Java available either in default PATH: $PATH or through JAVA_HOME environment variable"
+    inCompat=1
+   else
+    logInfo "Version of Java:"
+    $JAVA -version >> $logFile 2>&1
+    logInfo ""
+
+    distOk=0
+    verOk=0
+    bitOk=0
+
+    $JAVA -version 2>&1 | egrep -e "^(Java|OpenJDK)" > /dev/null
+    if [ $? -eq 0 ]; then
+      distOk=1
+    fi
+
+    $JAVA -version 2>&1 | grep "version" | egrep -e "1.(7|8)" > /dev/null
+    if [ $? -eq 0 ]; then
+      verOk=1
+    fi
+
+    $JAVA -version 2>&1 | grep -i "64-Bit" > /dev/null
+    if [ $? -eq 0 -o "$isClient" == "1" ]; then
+      bitOk=1
+    fi
+
+    if [ $distOk -eq 0 -o $verOk -eq 0 -o $bitOk -eq 0 ]; then
+      logErr " $JAVA found via JAVA_HOME or on PATH is not 64-Bit SUN-Java 1.7.x or 1.8.x, or 64-Bit OpenJDK 1.7.x or 1.8.x. [${distOk}${verOk}${bitOk}]"
+      inCompat=1
+    fi
+   fi
+  fi
+
+  if [ $inCompat == 1 ]; then
+    logErr " MapR recommends 64-Bit SUN-Java 1.7.x or 1.8.x, or 64-Bit OpenJDK 1.7.x or 1.8.x."
+    logErr " ACTION: Install a recommended version of Java and set the JAVA_HOME environment variable in env.sh."
+    actionReqd=1
+  fi
+}
